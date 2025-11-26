@@ -1,38 +1,26 @@
 package com.formation.mvc.model.metier;
 
-import com.formation.mvc.model.patterns.EtatSession;
-import java.io.Serializable;
-
-public class Etat implements EtatSession, Serializable {
-    private static final long serialVersionUID = 1L;
-    private String nom;
-    private boolean peutInscrire;
+public enum Etat {
+    OUVERTE("Ouverte"),
+    PLANIFIEE("Planifiée"),
+    EN_COURS("En cours"),
+    TERMINEE("Terminée"),
+    ANNULEE("Annulée"),
+    FERMEE("Fermée"),
+    PLEINE("Pleine");
     
-    public Etat(String nom, boolean peutInscrire) {
+    private final String nom;
+    
+    Etat(String nom) {
         this.nom = nom;
-        this.peutInscrire = peutInscrire;
     }
     
-    @Override
-    public boolean peutInscrire() {
-        return peutInscrire;
-    }
-    
-    @Override
     public String getNom() {
         return nom;
     }
     
     @Override
-    public void inscrireApprenant() {
-        if (peutInscrire) {
-            System.out.println("✅ Inscription réussie - Session " + nom);
-        } else {
-            System.out.println("❌ Impossible de s'inscrire - Session " + nom);
-        }
+    public String toString() {
+        return nom;
     }
-    
-    // États prédéfinis
-    public static Etat OUVERT = new Etat("OUVERT", true);
-    public static Etat COMPLET = new Etat("COMPLET", false);
 }

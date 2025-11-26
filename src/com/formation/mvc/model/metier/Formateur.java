@@ -1,28 +1,26 @@
 package com.formation.mvc.model.metier;
 
-import com.formation.mvc.model.patterns.Observer;
 import java.io.Serializable;
 
-public class Formateur implements Observer, Serializable {
+public class Formateur implements Serializable {
     private static final long serialVersionUID = 1L;
     private String nom;
     private String specialite;
+    private int anneeExperience;
     
-    public Formateur(String nom, String specialite) {
+    public Formateur(String nom, String specialite, int anneeExperience) {
         this.nom = nom;
         this.specialite = specialite;
+        this.anneeExperience = anneeExperience;
     }
     
-    @Override
-    public void update(String message) {
-        System.out.println("👨‍🏫 Notification Formateur " + nom + ": " + message);
-    }
-    
+    // Getters
     public String getNom() { return nom; }
     public String getSpecialite() { return specialite; }
+    public int getAnneeExperience() { return anneeExperience; }
     
     @Override
     public String toString() {
-        return nom + " (" + specialite + ")";
+        return String.format("%s - %s (%d années)", nom, specialite, anneeExperience);
     }
 }

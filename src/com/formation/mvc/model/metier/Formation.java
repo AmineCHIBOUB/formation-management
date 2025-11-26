@@ -1,11 +1,8 @@
 package com.formation.mvc.model.metier;
 
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
-public class Formation implements Serializable {
-    private static final long serialVersionUID = 1L;
+public class Formation {
     private String code;
     private String titre;
     private int dureeHeures;
@@ -18,23 +15,47 @@ public class Formation implements Serializable {
         this.options = new ArrayList<>();
     }
     
-    public void ajouterOption(String option) {
-        options.add(option);
-        System.out.println("✅ Option ajoutée: " + option);
-    }
-    
-    public String getDescriptionComplete() {
-        return String.format("Formation %s: %s (%d heures)", code, titre, dureeHeures);
-    }
-    
     // Getters
     public String getCode() { return code; }
     public String getTitre() { return titre; }
     public int getDureeHeures() { return dureeHeures; }
-    public List<String> getOptions() { return options; }
+    public List<String> getOptions() { return new ArrayList<>(options); }
+    
+    // Setters manquants
+    public void setTitre(String titre) {
+        this.titre = titre;
+    }
+    
+    public void setDureeHeures(int dureeHeures) {
+        this.dureeHeures = dureeHeures;
+    }
+    
+    // Méthodes de gestion des options
+    public void ajouterOption(String option) {
+        if (!options.contains(option)) {
+            options.add(option);
+        }
+    }
+    
+    public boolean supprimerOption(String option) {
+        return options.remove(option);
+    }
+    
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        Formation formation = (Formation) obj;
+        return Objects.equals(code, formation.code);
+    }
+    
+    @Override
+    public int hashCode() {
+        return Objects.hash(code);
+    }
     
     @Override
     public String toString() {
-        return getDescriptionComplete();
+        return String.format("%s: %s (%d heures)", code, titre, dureeHeures);
     }
 }
