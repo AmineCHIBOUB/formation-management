@@ -1,12 +1,28 @@
 @echo off
-echo Compilation en cours...
-javac -d bin --module-path "D:\Program Files\openjfx-21.0.9_windows-x64_bin-sdk\javafx-sdk-21.0.9\lib" --add-modules javafx.controls -cp "src" src/com/formation/mvc/view/MainGUI.java
+REM Lance l'application JavaFX.
+REM Prerequis : JDK 21 et le SDK JavaFX 21 (https://gluonhq.com/products/javafx/)
+REM Definir JAVAFX_HOME vers le dossier du SDK, par exemple :
+REM   set JAVAFX_HOME=C:\javafx-sdk-21
 
-if %errorlevel% equ 0 (
+if "%JAVAFX_HOME%"=="" (
+    echo Erreur : la variable JAVAFX_HOME n'est pas definie.
+    echo Exemple : set JAVAFX_HOME=C:\javafx-sdk-21
+    pause
+    exit /b 1
+)
+
+echo Compilation en cours...
+if not exist bin mkdir bin
+dir /s /b src\*.java > sources.txt
+javac -encoding UTF-8 -d bin --module-path "%JAVAFX_HOME%\lib" --add-modules javafx.controls @sources.txt
+set RESULTAT=%errorlevel%
+del sources.txt
+
+if %RESULTAT% equ 0 (
     echo Lancement de l'application...
-    java --module-path "D:\Program Files\openjfx-21.0.9_windows-x64_bin-sdk\javafx-sdk-21.0.9\lib" --add-modules javafx.controls -cp "bin" com.formation.mvc.view.MainGUI
+    java --module-path "%JAVAFX_HOME%\lib" --add-modules javafx.controls -cp bin com.formation.mvc.view.MainGUI
 ) else (
-    echo Erreur de compilation!
+    echo Erreur de compilation !
 )
 
 pause

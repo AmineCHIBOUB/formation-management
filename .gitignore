@@ -1,0 +1,16 @@
+# Fichiers compilés
+bin/
+bin-test/
+*.class
+
+# Dépendances téléchargées par run-tests.bat
+lib/
+
+# Données de l'application (créées à l'exécution)
+data/
+
+# Système et éditeurs
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

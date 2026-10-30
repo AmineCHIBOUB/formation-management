@@ -3,6 +3,7 @@ package com.formation.mvc.model.repository;
 import com.formation.mvc.model.metier.Session;
 import com.formation.mvc.model.metier.Formation;
 import com.formation.mvc.model.metier.Etat;
+import com.formation.mvc.model.service.JournalActivite;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -24,6 +25,8 @@ public class SessionRepository {
     public void sauvegarder(Session session) {
         sessions.removeIf(s -> s.getCodeSession().equals(session.getCodeSession()));
         sessions.add(session);
+        // chaque session enregistrée est observée par le journal d'activité
+        session.addObserver(JournalActivite.getInstance());
     }
     
     // Méthode pour supprimer une session

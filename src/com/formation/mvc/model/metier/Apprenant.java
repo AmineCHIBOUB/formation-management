@@ -1,8 +1,11 @@
 package com.formation.mvc.model.metier;
 
+import java.io.Serializable;
 import java.util.*;
 
-public class Apprenant {
+public class Apprenant implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private String nom;
     private String entreprise;
     private List<Session> sessionsInscrites;

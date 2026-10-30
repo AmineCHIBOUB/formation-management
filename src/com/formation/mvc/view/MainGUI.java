@@ -14,6 +14,8 @@ import com.formation.mvc.model.service.SessionService;
 import com.formation.mvc.model.service.StatistiquesService;
 import com.formation.mvc.model.service.ExportService;
 import com.formation.mvc.model.service.NotificationService;
+import com.formation.mvc.model.service.JournalActivite;
+import com.formation.mvc.model.service.PersistanceService;
 import javafx.application.Application;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -28,6 +30,7 @@ import javafx.scene.layout.*;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.time.LocalDate;
@@ -42,6 +45,7 @@ public class MainGUI extends Application {
     private StatistiquesService statsService = new StatistiquesService();
     private ExportService exportService = new ExportService();
     private NotificationService notificationService = new NotificationService();
+    private PersistanceService persistanceService = new PersistanceService();
     private FactoryFormation factory = new FactoryFormation();
     
     // ListViews
@@ -1056,13 +1060,21 @@ public class MainGUI extends Application {
                 dialog.getItems().addAll(manager.getApprenants());
                 
                 dialog.showAndWait().ifPresent(apprenant -> {
-                    if (session.inscrire(apprenant)) {
-                        sessionRepo.sauvegarder(session);
-                        actualiserListeSessions();
-                        showAlert("✅ " + apprenant.getNom() + " inscrit à la session!");
-                    } else {
-                        showAlert("❌ Session pleine ou apprenant déjà inscrit!");
+                    switch (session.inscrireOuMettreEnAttente(apprenant)) {
+                        case INSCRIT:
+                            showAlert("✅ " + apprenant.getNom() + " inscrit à la session!");
+                            break;
+                        case LISTE_ATTENTE:
+                            showAlert("⏳ Session pleine : " + apprenant.getNom()
+                                + " est en liste d'attente (position " + session.getListeAttente().size() + ").\n"
+                                + "Il sera inscrit automatiquement si une place se libère.");
+                            break;
+                        default:
+                            showAlert("❌ Inscription impossible : apprenant déjà inscrit ou en attente, "
+                                + "ou session « " + session.getEtat() + " ».");
                     }
+                    sessionRepo.sauvegarder(session);
+                    actualiserListeSessions();
                 });
             }
         } else {
@@ -1189,31 +1201,27 @@ public class MainGUI extends Application {
             Session session = sessionRepo.trouverParCode(codeSession);
             
             if (session != null) {
-                ChoiceDialog<String> dialog = new ChoiceDialog<>("OUVERTE", "OUVERTE", "PLANIFIEE", "TERMINEE", "ANNULEE");
+                // pattern State : seuls les états autorisés depuis l'état courant sont proposés
+                // (PLEINE est géré automatiquement selon le remplissage)
+                List<Etat> etatsPossibles = new ArrayList<>(session.getEtat().getTransitionsPossibles());
+                etatsPossibles.remove(Etat.PLEINE);
+                if (etatsPossibles.isEmpty()) {
+                    showAlert("ℹ️ La session est « " + session.getEtat() + " » : son état ne peut plus changer.");
+                    return;
+                }
+
+                ChoiceDialog<Etat> dialog = new ChoiceDialog<>(etatsPossibles.get(0), etatsPossibles);
                 dialog.setTitle("Changer État Session");
-                dialog.setHeaderText("Session: " + session.getCodeSession());
+                dialog.setHeaderText("Session: " + session.getCodeSession() + " (actuellement : " + session.getEtat() + ")");
                 dialog.setContentText("Choisir le nouvel état:");
-                
+
                 dialog.showAndWait().ifPresent(nouvelEtat -> {
-                    try {
-                        Etat nouvelEtatEnum = Etat.valueOf(nouvelEtat);
-                        switch (nouvelEtatEnum) {
-                            case OUVERTE:
-                                session.ouvrir();
-                                break;
-                            case PLANIFIEE:
-                                break;
-                            case TERMINEE:
-                                session.terminer();
-                                break;
-                            case ANNULEE:
-                                break;
-                        }
+                    if (session.changerEtat(nouvelEtat)) {
                         sessionRepo.sauvegarder(session);
                         actualiserListeSessions();
-                        showAlert("✅ État de la session changé avec succès!");
-                    } catch (IllegalArgumentException ex) {
-                        showAlert("❌ État invalide");
+                        showAlert("✅ Session passée à l'état « " + nouvelEtat + " »");
+                    } else {
+                        showAlert("❌ Transition non autorisée");
                     }
                 });
             }
@@ -1228,18 +1236,27 @@ public class MainGUI extends Application {
             String codeSession = selection.split(" - ")[0].trim();
             Session session = sessionRepo.trouverParCode(codeSession);
             
-            if (session != null && !session.getInscrits().isEmpty()) {
+            if (session != null && (!session.getInscrits().isEmpty() || !session.getListeAttente().isEmpty())) {
                 ChoiceDialog<Apprenant> dialog = new ChoiceDialog<>();
                 dialog.setTitle("Désinscrire Apprenant");
                 dialog.setHeaderText("Session: " + session.getCodeSession());
                 dialog.setContentText("Choisir un apprenant à désinscrire:");
                 dialog.getItems().addAll(session.getInscrits());
-                
+                dialog.getItems().addAll(session.getListeAttente());
+
                 dialog.showAndWait().ifPresent(apprenant -> {
+                    List<Apprenant> attenteAvant = session.getListeAttente();
                     if (session.desinscrire(apprenant)) {
                         sessionRepo.sauvegarder(session);
                         actualiserListeSessions();
-                        showAlert("✅ " + apprenant.getNom() + " désinscrit de la session!");
+                        StringBuilder message = new StringBuilder("✅ " + apprenant.getNom() + " désinscrit de la session!");
+                        // signale les apprenants passés automatiquement de la liste d'attente aux inscrits
+                        for (Apprenant a : attenteAvant) {
+                            if (session.getInscrits().contains(a)) {
+                                message.append("\n➡️ ").append(a.getNom()).append(" a été inscrit depuis la liste d'attente.");
+                            }
+                        }
+                        showAlert(message.toString());
                     } else {
                         showAlert("❌ Erreur lors de la désinscription");
                     }
@@ -1282,12 +1299,13 @@ public class MainGUI extends Application {
     
     private void sauvegarderBackup() {
         String timestamp = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-        String backupFile = "backup_" + timestamp + ".txt";
-        
+
         try {
-            formationService.sauvegarderFormations();
-            sessionService.sauvegarderSessions();
-            
+            if (!persistanceService.sauvegarder()) {
+                showAlert("❌ La sauvegarde a échoué (voir la console)");
+                return;
+            }
+
             StringBuilder backupContent = new StringBuilder();
             backupContent.append("=== BACKUP FORMATION PRO ===\n");
             backupContent.append("Date: ").append(timestamp).append("\n\n");
@@ -1296,7 +1314,7 @@ public class MainGUI extends Application {
             backupContent.append("Apprenants: ").append(manager.getApprenants().size()).append("\n");
             backupContent.append("Formateurs: ").append(manager.getFormateurs().size()).append("\n");
             
-            showAlert("💾 Backup créé avec succès!\nFichier: " + backupFile);
+            showAlert("💾 Sauvegarde effectuée avec succès!\nFichier : data/donnees.dat");
             System.out.println("=== CONTENU DU BACKUP ===\n" + backupContent.toString());
             
         } catch (Exception e) {
@@ -1397,6 +1415,15 @@ public class MainGUI extends Application {
         if (sessionsPresquePleines == 0 && sessionsSansApprenants == 0) {
             notifications.append("✅ Aucune notification urgente");
         }
+
+        // journal alimenté par le pattern Observer
+        List<String> evenements = JournalActivite.getInstance().getDerniersEvenements(10);
+        if (!evenements.isEmpty()) {
+            notifications.append("\n\n📝 DERNIÈRES ACTIVITÉS\n");
+            for (String evenement : evenements) {
+                notifications.append("• ").append(evenement).append("\n");
+            }
+        }
         
         showAlert(notifications.toString());
     }
@@ -1441,13 +1468,11 @@ public class MainGUI extends Application {
     }
     
     private void chargerDonnees() {
-        formationService.chargerFormations();
-        sessionService.chargerSessions();
+        persistanceService.charger();
     }
-    
+
     private void sauvegarderDonnees() {
-        formationService.sauvegarderFormations();
-        sessionService.sauvegarderSessions();
+        persistanceService.sauvegarder();
     }
     
     private String getProfessionalStyleCSS() {

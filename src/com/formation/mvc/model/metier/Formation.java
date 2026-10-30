@@ -1,8 +1,11 @@
 package com.formation.mvc.model.metier;
 
+import java.io.Serializable;
 import java.util.*;
 
-public class Formation {
+public class Formation implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private String code;
     private String titre;
     private int dureeHeures;
